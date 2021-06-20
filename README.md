@@ -23,7 +23,7 @@ Convert the Onnx model to TensorRT model (.trt) help you save a lot of parsing t
     python3 main.py export --weight ../2020_0421_0925.onnx --output model.trt --max_batch_size 10 --fp16
     ```
 
-## IV. Export Onnx model to TensorRT model (.trt) with dynamic input shape.
+## III. Export Onnx model to TensorRT model (.trt) with dynamic input shape.
   - Export:
     ```sh
     python3 main.py export --ds --weight --output --max_batch_size --input_tensor_name --dimension (--fp16)
@@ -36,7 +36,7 @@ Convert the Onnx model to TensorRT model (.trt) help you save a lot of parsing t
     python3 main.py export --ds --weight ../Keras.onnx --output Keras.trt --max_batch_size 10 --input_tensor_name input --dimension 3 640 640 --fp16
     ```
 
-## V. Inference:
+## IV. Inference:
   - Inference:
     ```sh
     python3 main.py infer --weight --img_path --batch_size
