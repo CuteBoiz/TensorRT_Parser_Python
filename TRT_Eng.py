@@ -70,7 +70,7 @@ class TRTInference():
     def infer(self, images):
         threading.Thread.__init__(self)
         for image in images:
-            cv2.resize(src=image, dsize=(self.input_width, self.input_height), dst=image, interpolation = cv2.INTER_AREA)
+            image = cv2.resize(src=image, dsize=(self.input_width, self.input_height), interpolation = cv2.INTER_AREA)
         self.cfx.push()
 
         # read image
