@@ -5,12 +5,10 @@ import tensorrt as trt
 import numpy as np
 import threading
 import time
-import pycuda.autoinit
-from pycuda.driver import Context
 import cv2
 
 class TRTInference():
-    def __init__(self, trt_engine_path, trt_engine_datatype = trt.DataType.FLOAT, batch_size = 1):
+    def __init__(self, trt_engine_path, trt_engine_datatype = trt.DataType.FLOAT):
         self.cfx = cuda.Device(0).make_context()
         stream = cuda.Stream()
 
@@ -33,10 +31,13 @@ class TRTInference():
         output_shape = []
 
         dimension = engine.get_binding_shape(engine[0])
-        if dimension[1] == 3: #channel first
+
+        if dimension[1] == 3 or dimension[1] == 1: #channel first
+            self.channel_first = True
             self.input_height = dimension[2]
             self.input_width = dimension[3]
-        if dimension[3] == 3: #channel last
+        if dimension[3] == 3 or dimension[1] == 1: #channel last
+            self.channel_first = False
             self.input_height = dimension[1]
             self.input_width = dimension[2]
 
@@ -69,14 +70,22 @@ class TRTInference():
 
     def infer(self, images):
         threading.Thread.__init__(self)
+        #Preprocessing
+        x = []
         for image in images:
             image = cv2.resize(src=image, dsize=(self.input_width, self.input_height), interpolation = cv2.INTER_AREA)
+            mean = [0.485, 0.456, 0.406]
+            std = [0.229, 0.224, 0.225]
+            image = (image - mean) / std
+            if self.channel_first:
+                image = image.transpose((2, 0, 1))
+            x.append(image)
         self.cfx.push()
 
-        # read image
+        x = np.asarray(x) 
         np.copyto(self.host_inputs[0], image.ravel())
         output = []
-        # inference
+        # Inference
         cuda.memcpy_htod_async(self.cuda_inputs[0], self.host_inputs[0], self.stream)
         self.context.execute_async(bindings=self.bindings, stream_handle=self.stream.handle)
         for index, cuda_output in enumerate(self.cuda_outputs):

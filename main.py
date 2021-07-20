@@ -10,10 +10,20 @@ def softmax(x):
     return np.exp(x) / np.sum(np.exp(x), axis=0)
 
 def infer_main(args):
-	filesName = glob.glob(os.path.join(args.img_path ,"*"))
+	if args.batch_size <= 0:
+		err_str = 'Batch size must be greater than 0'
+		raise ValueError(err_str)
+	if not os.path.isfile(args.weight):
+		err_str = 'Could not found {}'.format(args.weight)
+		raise ValueError(err_str)
+	if not os.path.isdir(args.path):
+		err_str = 'Could not found {}'.format(args.path)
+		raise ValueError(err_str)
+
+	filesName = glob.glob(os.path.join(args.path ,"*"))
 	nrof_images = 0
 	images = []
-	engine = TRTInference(trt_engine_path=args.weight, batch_size=args.batch_size)
+	engine = TRTInference(trt_engine_path=args.weight)
 
 	for file in filesName:
 		file_name, file_extension = os.path.splitext(file)
@@ -33,28 +43,41 @@ def infer_main(args):
 
 
 def export_main(args):
-	if args.ds == True:
+	if args.max_batch_size <= 0:
+		err_str = 'Max batch size must be greater than 0'
+		raise ValueError(err_str)
+	if not os.path.isfile(args.weight):
+		err_str = 'Could not found {}'.format(args.weight)
+		raise ValueError(err_str)
+	basename = args.name.split("/")[-1]
+	if basename.rfind('.') == -1:
+		err_str = "{} is an unvalid filename".format(basename)
+		raise ValueError(err_str)
+	if os.path.dirname(args.name) != '':
+		os.makedirs(os.path.dirname(args.name), exist_ok=True)
+
+	if args.ds:
 		assert args.dimension is not None
 		assert len(args.dimension) == 3
 		assert args.input_tensor_name is not None
-		exportTRTEngine(args.weight, args.output, args.max_batch_size, args.input_tensor_name, args.dimension, True, args.fp16)
+		exportTRTEngine(args.weight, args.name, args.max_batch_size, args.input_tensor_name, args.dimension, True, args.fp16)
 	else:
-		exportTRTEngine(onnx_file_name=args.weight, trt_file_name=args.output, max_batch_size=args.max_batch_size, multi_dimension=False, FP16_MODE=args.fp16)
+		exportTRTEngine(onnx_file_name=args.weight, trt_file_name=args.name, max_batch_size=args.max_batch_size, multi_dimension=False, FP16_MODE=args.fp16)
 
 if __name__ == '__main__':
-
 	parser = argparse.ArgumentParser('Export TensorRT')
 	subparser = parser.add_subparsers(dest='mode')
 
 	infer_parser = subparser.add_parser("infer")
 	infer_parser.add_argument("--weight", type=str, required=True, help="TensorRT engine")
-	infer_parser.add_argument("--img_path", type=str, required=True, help="Image folder path.")
-	infer_parser.add_argument("-bs", "--batch_size", type=int, help="Infer batch size")
+	infer_parser.add_argument("--path", type=str, required=True, help="Image folder path.")
+	infer_parser.add_argument("-bs", "--batch_size", type=int, default=1, help="Infer batch size")
 	
 	export_parser = subparser.add_parser("export")
 	export_parser.add_argument('--weight', type=str, required=True, help='Input model path')
-	export_parser.add_argument('--output', type=str, required=True, help='Output file name')
-	export_parser.add_argument('--max_batch_size', type=int, required=True, help='max_batch_size')
+	export_parser.add_argument('--name', type=str, required=True, help='Output file name')
+	export_parser.add_argument('--max_batch_size', type=int, default=1, help='max_batch_size')
+
 	export_parser.add_argument('--ds', action='store_true', help='Dynamic Shape Convert')
 	export_parser.add_argument('--dimension', action='store', dest='dimension', type=int, nargs='*', default=None, help='CHW or HWC size')
 	export_parser.add_argument('--input_tensor_name', type=str, default=None, help='Input tensor name')
