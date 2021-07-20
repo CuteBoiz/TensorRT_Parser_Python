@@ -11,38 +11,60 @@ Convert the Onnx model to TensorRT model (.trt) help you save a lot of parsing t
 - [Install OpenCV From Source with CUDA support](https://github.com/CuteBoiz/Ubuntu_Installation/blob/master/opencv.md)
 
 ## II. Export Onnx model to TensorRT model (.trt).
-  - Export:
+  - **Export:**
     ```sh
-    python3 main.py export --weight --output --max_batch_size (--fp16)
+    python3 main.py export --weight --name (--max_batch_size) (--fp16)
     ```
-    **Note:** The only GPUs with full-rate FP16 Fast mode performance are Tesla P100, Quadro GP100, and Jetson TX1/TX2.
+    - ***Arguments***
+      - `weight`: Path to Onnx model.
+      - `name`: Saved name of output TensorRT engine.
+      - `max_batch_size`: Max inference batch size *(default = 1)*.
+      - `fp16`: Use fp16 fast mode *(default = False)*.
+      
+      **Note:** The only GPUs with full-rate FP16 Fast mode performance are Tesla P100, Quadro GP100, and Jetson TX1/TX2.
 
-  - Example:
+  - **Example:**
     ```sh
-    python3 main.py export --weight ../2020_0421_0925.onnx --output model.trt --max_batch_size 5
-    python3 main.py export --weight ../2020_0421_0925.onnx --output model.trt --max_batch_size 10 --fp16
+    python3 main.py export --weight ../2020_0421_0925.onnx --name model.trt --max_batch_size 5
+    python3 main.py export --weight ../2020_0421_0925.onnx --name model.trt --max_batch_size 10 --fp16
     ```
 
 ## III. Export Onnx model to TensorRT model (.trt) with dynamic input shape.
-  - Export:
+  - **Export:**
     ```sh
-    python3 main.py export --ds --weight --output --max_batch_size --input_tensor_name --dimension (--fp16)
+    python3 main.py export --ds --weight --name (--max_batch_size) --input_tensor_name --dimension (--fp16)
     ```
-    **Note:** To get input tensor name and shape of model: Use [Netron](https://github.com/lutzroeder/netron).
+    - ***Arguments***
+      - `ds`: Enable dynamic input shape convert.
+      - `weight`: Path to Onnx model.
+      - `name`: Saved name of output TensorRT engine.
+      - `input_tensor_name`: Name of Onnx's first layer.
+      - `dimension`: Dimension of Onnx's first layer.
+      - `max_batch_size`: Max inference batch size *(default = 1)*.
+      - `fp16`: Use fp16 fast mode *(default = False)*.
+      
+      **Note:** The only GPUs with full-rate FP16 Fast mode performance are Tesla P100, Quadro GP100, and Jetson TX1/TX2.  
+      
+      **Note:** To get input tensor name and shape of model: Use [Netron](https://github.com/lutzroeder/netron).
 
-  - Example:
+  - **Example:**
     ```sh
-    python3 main.py export --ds --weight ../2020_0421_0925.onnx --output model.trt --max_batch_size 5 --input_tensor_name input_1 --dimension 128 128 3
-    python3 main.py export --ds --weight ../Keras.onnx --output Keras.trt --max_batch_size 10 --input_tensor_name input --dimension 3 640 640 --fp16
+    python3 main.py export --ds --weight ../2020_0421_0925.onnx --name model.trt --max_batch_size 5 --input_tensor_name input_1 --dimension 128 128 3
+    python3 main.py export --ds --weight ../Keras.onnx --name Keras.trt --max_batch_size 10 --input_tensor_name input --dimension 3 640 640 --fp16
     ```
 
 ## IV. Inference:
-  - Inference:
+  - **Inference:**
     ```sh
-    python3 main.py infer --weight --img_path --batch_size
+    python3 main.py infer --weight --path (--batch_size)
     ```
-
-  - Example:
+    - ***Arguments***
+      - `weight`: Path to TensorRT model.
+      - `path`: Path to inference images folder.
+      - `batch_size`: Inference batch size *(default = 1)*.
+      
+  - **Example:**
     ```sh
-    python3 main.py infer --weight ../2020_0421_0925.onnx --img_path ../Dataset/Train/ -bs 5
+    python3 main.py infer --weight ../2020_0421_0925.onnx --path ../Dataset/Train/
+    python3 main.py infer --weight ../2020_0421_0925.onnx --path ../Dataset/Train/ -bs 6
     ```
