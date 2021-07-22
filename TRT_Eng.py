@@ -80,10 +80,10 @@ class TRTInference():
             if self.channel_first:
                 image = image.transpose((2, 0, 1))
             x.append(image)
-        self.cfx.push()
 
-        x = np.asarray(x) 
-        np.copyto(self.host_inputs[0], image.ravel())
+        x = np.asarray(x)
+        self.cfx.push()
+        np.copyto(self.host_inputs[0], x.ravel())
         output = []
         # Inference
         cuda.memcpy_htod_async(self.cuda_inputs[0], self.host_inputs[0], self.stream)
