@@ -7,7 +7,8 @@ import os
 import time
 
 def softmax(x):
-    return np.exp(x) / np.sum(np.exp(x), axis=0)
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum(axis=0)
 
 def infer_main(args):
 	if args.batch_size <= 0:
@@ -22,23 +23,23 @@ def infer_main(args):
 
 	filesName = glob.glob(os.path.join(args.path ,"*"))
 	nrof_images = 0
-	images = []
 	engine = TRTInference(trt_engine_path=args.weight)
 
 	for file in filesName:
 		file_name, file_extension = os.path.splitext(file)
 		if file_extension == ".png" or file_extension == ".jpg" or file_extension == ".jpeg" or file_extension == ".bmp":
 			print(os.path.basename(file))
-			images.append(cv2.imread(file))
+			image = cv2.imread(file)
 			nrof_images += 1
-			if len(images) == args.batch_size or nrof_images == len(filesName):
-				start = time.time()
-				results = engine.infer(images)
-				for result in results:
-					print(np.squeeze(result))
-				end = time.time()
-				print("{0:.0f}ms".format((end - start)*1000))
-				images = []
+			start = time.time()
+			results = engine.infer(images)
+			for result in results:
+				result = np.squeeze(result)
+				if (args.softmax):
+					result = softmax(result)
+				print(result)
+			end = time.time()
+			print("{0:.0f}ms".format((end - start)*1000))
 	print("Total inferenced images: {}".format(nrof_images))
 
 
@@ -72,6 +73,7 @@ if __name__ == '__main__':
 	infer_parser.add_argument("--weight", type=str, required=True, help="TensorRT engine")
 	infer_parser.add_argument("--path", type=str, required=True, help="Image folder path.")
 	infer_parser.add_argument("-bs", "--batch_size", type=int, default=1, help="Infer batch size")
+	infer_parser.add_argument("--softmax", action='store_true', default=False, help="Use softmax")
 	
 	export_parser = subparser.add_parser("export")
 	export_parser.add_argument('--weight', type=str, required=True, help='Input model path')

@@ -68,18 +68,17 @@ class TRTInference():
         self.output_shape = output_shape
     
 
-    def infer(self, images):
+    def infer(self, image):
         threading.Thread.__init__(self)
         #Preprocessing
         x = []
-        for image in images:
-            image = cv2.resize(src=image, dsize=(self.input_width, self.input_height), interpolation = cv2.INTER_AREA)
-            mean = [0.485, 0.456, 0.406]
-            std = [0.229, 0.224, 0.225]
-            image = (image - mean) / std
-            if self.channel_first:
-                image = image.transpose((2, 0, 1))
-            x.append(image)
+        image = cv2.resize(src=image, dsize=(self.input_width, self.input_height), interpolation = cv2.INTER_AREA)
+        mean = [0.485, 0.456, 0.406]
+        std = [0.229, 0.224, 0.225]
+        image = (image - mean) / std
+        if self.channel_first:
+            image = image.transpose((2, 0, 1))
+        x.append(image)
 
         x = np.asarray(x)
         self.cfx.push()

@@ -56,15 +56,20 @@ Convert the Onnx model to TensorRT model (.trt) help you save a lot of parsing t
 ## IV. Inference:
   - **Inference:**
     ```sh
-    python3 main.py infer --weight --path (--batch_size)
+    python3 main.py infer --weight --path (--batch_size) (--softmax)
     ```
     - ***Arguments***
       - `weight`: Path to TensorRT model.
       - `path`: Path to inference images folder.
       - `batch_size`: Inference batch size *(default = 1)*.
+      - `softmax`: Use softmax.
       
   - **Example:**
     ```sh
     python3 main.py infer --weight ../2020_0421_0925.onnx --path ../Dataset/Train/
-    python3 main.py infer --weight ../2020_0421_0925.onnx --path ../Dataset/Train/ -bs 6
+    python3 main.py infer --weight ../2020_0421_0925.onnx --path ../Dataset/Train/ -bs 6 --softmax
     ```
+
+## V.TO-DO
+
+- [ ] Batchsize inference
