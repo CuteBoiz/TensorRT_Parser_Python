@@ -32,7 +32,7 @@ def infer_main(args):
 			image = cv2.imread(file)
 			nrof_images += 1
 			start = time.time()
-			results = engine.infer(images)
+			results = engine.infer(image)
 			for result in results:
 				result = np.squeeze(result)
 				if (args.softmax):
