@@ -21,7 +21,7 @@ Convert the Onnx model to TensorRT model (.trt) help you save a lot of parsing t
     ```
   
 
-## <div align=center> II. Export Onnx model to TensorRT engine. </div>
+## <div align=center> II. Export Onnx engine to TensorRT engine. </div>
 
 ```sh
 python3 main.py export --weight (--saved_name) (--max_batch_size) (--fp16) (--input_tensor_name) (--dim) 
@@ -76,7 +76,7 @@ python3 main.py infer --weight --data (--batch_size) (--softmax)
     
    |Arguments Details   |Type           |Default        |Note
    |---                 |---            |---            |---
-   |`--weight`          |`str`          |`required`     |**Path to onnx engine.**
+   |`--weight`          |`str`          |`required`     |**Path to trt engine.**
    |`--data`            |`str`          |`required`     |**Path to inference data.**
    |`--batch_size`      |`int`          |`1`            |**Inference batchsize.**
    |`--softmax`         |`store_true`   |`false`        |**Add softmax to output layer.**
@@ -91,8 +91,8 @@ python3 main.py infer --weight --data (--batch_size) (--softmax)
 <summary><b>Examples</b></summary>
  
 ```
-python3 main.py infer --weight ../2020_0421_0925.onnx --data ../Dataset/Train/
-python3 main.py infer --weight ../2020_0421_0925.onnx --data ../Dataset/Train/ -bs 6 --softmax
+python3 main.py infer --weight ../2020_0421_0925.trt --data ../Dataset/Train/
+python3 main.py infer --weight ../2020_0421_0925.trt --data ../Dataset/Train/ --batch_size 6 --softmax
 ```
  
 </details>
