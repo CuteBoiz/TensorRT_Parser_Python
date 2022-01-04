@@ -80,10 +80,6 @@ python3 main.py infer --weight --data (--batch_size) (--softmax)
    |`--data`            |`str`          |`required`     |**Path to inference data.**
    |`--batch_size`      |`int`          |`1`            |**Inference batchsize.**
    |`--softmax`         |`store_true`   |`false`        |**Add softmax to output layer.**
-
-   **Note:** The only GPUs with full-rate FP16 Fast mode performance are Tesla P100, Quadro GP100, and Jetson TX1/TX2.
-
-   **Note:** To get input tensor name and shape of model: Use [Netron](https://github.com/lutzroeder/netron).
     
 </details> 
 
