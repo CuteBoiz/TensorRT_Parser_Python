@@ -1,4 +1,4 @@
-# TensorRT_Parser_Python
+# <div align=center> TensorRT_Parser_Python </div>
 
 TensorRT engine **convert** (from ***Onnx*** engine) and **inference** in Python.
 
@@ -8,24 +8,24 @@ Convert the Onnx model to TensorRT model (.trt) help you save a lot of parsing t
 ## I. Prerequiste.
 
 - [CUDA/CUDNN/TensorRT Installation Guide](https://github.com/CuteBoiz/Ubuntu_Installation/blob/master/cuda.md)
-- [Install OpenCV From Source with CUDA support](https://github.com/CuteBoiz/Ubuntu_Installation/blob/master/opencv.md)
+
 - **Clone.**
   ```sh
   git clone https://github.com/CuteBoiz/TensorRT_Parser_Python
   cd TensorRT_Parser_Python
   ```
   
- - **Swtich to TensorRT 8 support:**
+ - **Switch to TensorRT 8 support:**
     ```sh
     git checkout trt8
     ```
   
 
-## II. Export Onnx model to TensorRT model (.trt).
-  - **Export:**
-    ```sh
-    python3 main.py export --weight (--saved_name) (--max_batch_size) (--input_tensor_name) (--dim) (--fp16)
-    ```
+## <div align=center> II. Export Onnx model to TensorRT engine. </div>
+
+```sh
+python3 main.py export --weight (--saved_name) (--max_batch_size) (--fp16) (--input_tensor_name) (--dim) 
+```
 
 <details> 
 <summary><b>Arguments Details</b></summary>
@@ -33,15 +33,15 @@ Convert the Onnx model to TensorRT model (.trt) help you save a lot of parsing t
    |Arguments Details   |Type           |Default        |Note
    |---                 |---            |---            |---
    |`--weight`          |`str`          |`required`     |**Path to onnx engine.**
-   |`--saved_name`      |`str`          |`weight.trt`   |**Saved name of trt engine**
+   |`--saved_name`      |`str`          |`weight_path.trt`   |**Saved name of trt engine**
    |`--fp16`            |`store_true`   |`false`        |**Use FP16 fast mode (x2 inference time).**
-   |`--maxbatchsize`    |`int`          |`1`            |**Inference max batchsize.**
-   |`--input_tensor_name`|`str`         |`None`         |**Input tensorname *(dynamic shape input only)*.**
+   |`--max_batch_size`  |`int`          |`1`            |**Inference max batchsize.**
+   |`--input_tensor_name`|`str`         |`None`         |**Input tensor name *(dynamic shape input only)*.**
    |`--dim`             |`int_array`    |`None`         |**Input tensor dimension *(dynamic shape input only)*.**
 
    **Note:** The only GPUs with full-rate FP16 Fast mode performance are Tesla P100, Quadro GP100, and Jetson TX1/TX2.
 
-   **Note:** To get input tensor name and shape of model: Use [Netron](https://github.com/lutzroeder/netron).
+   **Note:** To get input tensor name/shape of a DL engine: Use [Netron](https://github.com/lutzroeder/netron).
     
 </details> 
 
@@ -65,11 +65,11 @@ Convert the Onnx model to TensorRT model (.trt) help you save a lot of parsing t
  
 </details>
 
-## IV. Inference:
-  - **Inference:**
-    ```sh
-    python3 main.py infer --weight --data (--batch_size) (--softmax)
-    ```
+## <div align=center> III. Inference. </div>
+
+```sh
+python3 main.py infer --weight --data (--batch_size) (--softmax)
+```
 
 <details> 
 <summary><b>Arguments Details</b></summary>
@@ -78,8 +78,8 @@ Convert the Onnx model to TensorRT model (.trt) help you save a lot of parsing t
    |---                 |---            |---            |---
    |`--weight`          |`str`          |`required`     |**Path to onnx engine.**
    |`--data`            |`str`          |`required`     |**Path to inference data.**
-   |`--softmax`         |`store_true`   |`false`        |**Add softmax to output layer.**
    |`--batch_size`      |`int`          |`1`            |**Inference batchsize.**
+   |`--softmax`         |`store_true`   |`false`        |**Add softmax to output layer.**
 
    **Note:** The only GPUs with full-rate FP16 Fast mode performance are Tesla P100, Quadro GP100, and Jetson TX1/TX2.
 
@@ -98,7 +98,7 @@ python3 main.py infer --weight ../2020_0421_0925.onnx --data ../Dataset/Train/ -
 </details>
 
 
-## V.TO-DO
+## TO-DO
 
 - [ ] Batchsize inference.
 - [ ] Add missing params (max_workspace_size, gpu).
