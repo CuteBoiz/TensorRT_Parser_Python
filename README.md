@@ -9,6 +9,17 @@ Convert the Onnx model to TensorRT model (.trt) help you save a lot of parsing t
 
 - [CUDA/CUDNN/TensorRT Installation Guide](https://github.com/CuteBoiz/Ubuntu_Installation/blob/master/cuda.md)
 - [Install OpenCV From Source with CUDA support](https://github.com/CuteBoiz/Ubuntu_Installation/blob/master/opencv.md)
+- **Clone.**
+  ```sh
+  git clone https://github.com/CuteBoiz/TensorRT_Parser_Python
+  cd TensorRT_Parser_Python
+  ```
+  
+ - **Swtich to TensorRT 8 support:**
+    ```sh
+    git checkout trt8
+    ```
+  
 
 ## II. Export Onnx model to TensorRT model (.trt).
   - **Export:**
