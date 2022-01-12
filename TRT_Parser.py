@@ -1,4 +1,5 @@
 
+from numpy.lib.function_base import append
 import pycuda.driver as cuda
 import pycuda.autoinit
 import tensorrt as trt
@@ -39,78 +40,88 @@ class TRTInference():
 		show_engine_info(engine)
 		context = engine.create_execution_context()
 
-		# Prepare buffer
-		host_inputs  = []
-		cuda_inputs  = []
-		host_outputs = []
-		cuda_outputs = []
-		bindings = []
-		output_shape = []
-
 		# Get input shape
 		dimension = engine.get_binding_shape(engine[0])
 		if dimension[1] == 3 or dimension[1] == 1:
 			self.channel_first = True
+			self.input_channels = dimension[1]
 			self.input_height = dimension[2]
 			self.input_width = dimension[3]
-		if dimension[3] == 3 or dimension[1] == 1:
+		if dimension[3] == 3 or dimension[3] == 1:
 			self.channel_first = False
+			self.input_channels = dimension[3]
 			self.input_height = dimension[1]
 			self.input_width = dimension[2]
 
-		for binding in engine:
-			size = trt.volume(engine.get_binding_shape(binding))
-			host_mem = cuda.pagelocked_empty(size, np.float32)
-			cuda_mem = cuda.mem_alloc(host_mem.nbytes)
-
-			bindings.append(int(cuda_mem))
-			if engine.binding_is_input(binding):
-				host_inputs.append(host_mem)
-				cuda_inputs.append(cuda_mem)
-			else:
-				output_shape.append(engine.get_binding_shape(binding))
-				host_outputs.append(host_mem)
-				cuda_outputs.append(cuda_mem)
-
-		self.stream  = stream
 		self.context = context
 		self.engine  = engine
+		self.stream = stream
 
-		self.host_inputs = host_inputs
-		self.cuda_inputs = cuda_inputs
-		self.host_outputs = host_outputs
-		self.cuda_outputs = cuda_outputs
-		self.bindings = bindings
-		self.output_shape = output_shape
 	
+	def preprocess_images(self, images):
+		assert isinstance(images, list)
+		x = []
+		for image in images:
+			assert image is not None
+			image = cv2.resize(src=image, dsize=(self.input_width, self.input_height), interpolation = cv2.INTER_AREA)
+			image = np.float32(image)
+			image = image*(1/255)
+			mean = [0.485, 0.456, 0.406]
+			std = [0.229, 0.224, 0.225]
+			image = (image - mean) / std
+			if self.channel_first:
+				image = image.transpose((2, 0, 1))
+			x.append(image)
+		x = np.asarray(x).astype(np.float32)
+		return x
 
-	def infer(self, image):
+	def infer(self, images):
+		assert len(images) <= self.engine.max_batch_size, f"[ERROR] Batch size num must be smaller than {self.engine.max_batch_size}"
 		threading.Thread.__init__(self)
 		# Image preprocessing
-		image = cv2.resize(src=image, dsize=(self.input_width, self.input_height), interpolation = cv2.INTER_AREA)
-		image = np.float32(image)
-		image = image*(1/255)
-		mean = [0.485, 0.456, 0.406]
-		std = [0.229, 0.224, 0.225]
-		image = (image - mean) / std
-		if self.channel_first:
-			image = image.transpose((2, 0, 1))
-		x = np.asarray([image]).astype(np.float32)
-		
-		# Allocate images
+		x = self.preprocess_images(images)
+	
+		# Create buffers & Allocate images
+		bindings = []
+		host_inputs  = []
+		host_outputs = []
+		device_inputs  = []
+		device_outputs = []
+		output_shape = []
+
+		for binding in self.engine:
+			size = trt.volume(self.engine.get_binding_shape(binding))
+			dtype = trt.nptype(self.engine.get_binding_dtype(binding))
+			host_mem = cuda.pagelocked_empty(size, dtype)
+			device_mem = cuda.mem_alloc(host_mem.nbytes)
+			bindings.append(int(device_mem))
+
+			if self.engine.binding_is_input(binding):
+				host_inputs.append(host_mem)
+				device_inputs.append(device_mem)
+			else:
+				output_shape.append(self.engine.get_binding_shape(binding))
+				host_outputs.append(host_mem)
+				device_outputs.append(device_mem)
+
 		self.cfx.push()
-		np.copyto(self.host_inputs[0], x.ravel())
+		host_inputs[0] = np.ascontiguousarray(x)
 		
 		# Inference
-		output = []
-		cuda.memcpy_htod_async(self.cuda_inputs[0], self.host_inputs[0], self.stream)
-		self.context.execute_async(bindings=self.bindings, stream_handle=self.stream.handle)
-		for index, cuda_output in enumerate(self.cuda_outputs):
-			cuda.memcpy_dtoh_async(self.host_outputs[index], cuda_output, self.stream)
-			output.append(self.host_outputs[index].reshape(self.output_shape[index]))
+		outputs = []
+		cuda.memcpy_htod_async(device_inputs[0], host_inputs[0], self.stream)
+		self.context.execute_async(batch_size=len(images) ,bindings=bindings, stream_handle=self.stream.handle)
+
+		for i in range(len(host_outputs)):
+			cuda.memcpy_dtoh_async(host_outputs[i], device_outputs[i], self.stream)
+			outputs.append(host_outputs[i].reshape(output_shape[i]))
 		self.stream.synchronize()
 		self.cfx.pop()
-		return output
+
+		result = []
+		for output in outputs:
+			result.append(output[:len(images),:])
+		return result
 
 	def __del__(self):
 		self.cfx.pop()

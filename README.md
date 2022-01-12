@@ -90,8 +90,8 @@ python3 main.py infer --weight ../2020_0421_0925.trt --data ../Dataset/Train/ --
 
 ## TO-DO
 
-- [ ] Batchsize inference.
+- [x] Batchsize inference.
 - [ ] Add missing params (max_workspace_size, gpu).
 - [ ] Multiple inputs support.
-- [ ] Multiple output support.
-- [ ] Multi-type of inference data (video/folder/image).
+- [x] Multiple output support.
+- [x] Multi-type of inference data (video/folder/image).

@@ -77,20 +77,33 @@ def infer(args):
 				continue
 	else:
 		raise Exception(f"Could not load any data from: {args.data}")
-	
+
+	# Batched
+	batched_images = []
+	range_num = len(images)//args.batch_size+1 if len(images)%args.batch_size > 0 else len(images)//args.batch_size
+	for i in range(range_num):
+		batched_images.append([])
+	count  = 0
+	index = 0
+	for i in range(len(images)):
+		batched_images[index].append(images[i])
+		count+=1
+		if count == args.batch_size:
+			count = 0
+			index += 1
 	# Load engine
 	engine = TRTInference(engine_path=args.weight, gpu_num=args.gpu)
 
-	for image in images:
-			start = time.time()
-			results = engine.infer(image)
-			for result in results:
-				result = np.squeeze(result)
-				if (args.softmax):
-					result = softmax(result)
-				print(result)
-			end = time.time()
-			print("{0:.0f}ms".format((end - start)*1000))
+	for batched in batched_images:
+		start = time.time()
+		results = engine.infer(batched)
+		for result in results:
+			result = np.squeeze(result)
+			if (args.softmax):
+				result = softmax(result)
+			print(result.shape)
+		end = time.time()
+		print("{0:.0f}ms".format((end - start)*1000))
 	print("Total inferenced images: {}".format(len(images)))
 
 if __name__ == '__main__':
