@@ -126,10 +126,11 @@ class TRTInference():
 	def __del__(self):
 		self.cfx.pop()
 
-def exportTRTEngine(onnx_file_name, trt_file_name, max_batch_size, input_tensor_name="", dimension="", multi_dimension=False, FP16_MODE=False):
+def exportTRTEngine(onnx_file_name, trt_file_name, max_batch_size, max_workspace_size, input_tensor_name=None, dimension=None, FP16_MODE=False):
 	assert onnx_file_name is not None
 	assert trt_file_name is not None
 	assert max_batch_size is not None
+	assert max_workspace_size is not None
 
 	TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
 	TRT_VERSION_MAJOR = int(trt.__version__.split('.')[0])
@@ -148,9 +149,9 @@ def exportTRTEngine(onnx_file_name, trt_file_name, max_batch_size, input_tensor_
 		config = builder.create_builder_config()
 
 		if TRT_VERSION_MAJOR == 7:
-			builder.max_workspace_size = 1 << 30
+			builder.max_workspace_size = 1048576 * max_workspace_size
 		elif TRT_VERSION_MAJOR == 8:
-			config.max_workspace_size = 1 << 30
+			config.max_workspace_size = 1048576 * max_workspace_size
 
 		if not FP16_MODE:
 			print('Converting into FP32 (default), max_batch_size={}'.format(max_batch_size))
@@ -164,7 +165,7 @@ def exportTRTEngine(onnx_file_name, trt_file_name, max_batch_size, input_tensor_
 					config.set_flag(trt.BuilderFlag.FP16)
 				print('Converting into FP16, max_batch_size={}'.format(max_batch_size))	
 
-		if multi_dimension:
+		if dimension is not None:
 			profile = builder.create_optimization_profile()
 			profile.set_shape(input_tensor_name, (1, dimension[0], dimension[1], dimension[2]), (max_batch_size, dimension[0], dimension[1], dimension[2]), (max_batch_size, dimension[0], dimension[1], dimension[2]))
 			config.add_optimization_profile(profile)

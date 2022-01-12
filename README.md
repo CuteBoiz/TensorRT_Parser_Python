@@ -18,7 +18,7 @@ Convert the Onnx model to TensorRT model (.trt) help you save a lot of parsing t
 ## <div align=center> II. Export Onnx engine to TensorRT engine. </div>
 
 ```sh
-python3 main.py export --weight (--saved_name) (--max_batch_size) (--fp16) (--input_tensor_name) (--dim) 
+python3 main.py export --weight (--saved_name) (--max_batch_size) (--max_workspace_size) (--fp16) (--input_tensor_name) (--dim) 
 ```
 
 <details> 
@@ -27,9 +27,10 @@ python3 main.py export --weight (--saved_name) (--max_batch_size) (--fp16) (--in
    |Arguments Details   |Type           |Default        |Note
    |---                 |---            |---            |---
    |`--weight`          |`str`          |`required`     |**Path to onnx engine.**
-   |`--saved_name`      |`str`          |`weight_path.trt`   |**Saved name of trt engine**
+   |`--saved_name`      |`str`          |`'weight_path'.trt`   |**Saved name of trt engine**
    |`--fp16`            |`store_true`   |`false`        |**Use FP16 fast mode (x2 inference time).**
    |`--max_batch_size`  |`int`          |`1`            |**Inference max batchsize.**
+   |`--max_workspace_size`| `int`       |`1300`         |**Max workspace size(MB)**
    |`--input_tensor_name`|`str`         |`None`         |**Input tensor name *(dynamic shape input only)*.**
    |`--dim`             |`int_array`    |`None`         |**Input tensor dimension *(dynamic shape input only)*.**
 
@@ -91,7 +92,7 @@ python3 main.py infer --weight ../2020_0421_0925.trt --data ../Dataset/Train/ --
 ## TO-DO
 
 - [x] Batchsize inference.
-- [ ] Add missing params (max_workspace_size, gpu).
+- [x] Add missing params (max_workspace_size, gpu).
 - [ ] Multiple inputs support.
 - [x] Multiple output support.
 - [x] Multi-type of inference data (video/folder/image).

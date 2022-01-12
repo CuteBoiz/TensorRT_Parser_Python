@@ -39,9 +39,10 @@ def export(args):
 	# Export
 	if args.dim is not None:
 		assert args.input_tensor_name is not None
-		exportTRTEngine(args.weight, saved_path, args.max_batch_size, args.input_tensor_name, args.dim, True, args.fp16)
+		exportTRTEngine(args.weight, saved_path, args.max_batch_size, args.max_workspace_size,args.input_tensor_name, args.dim, args.fp16)
 	else:
-		exportTRTEngine(onnx_file_name=args.weight, trt_file_name=saved_path, max_batch_size=args.max_batch_size, multi_dimension=False, FP16_MODE=args.fp16)
+		exportTRTEngine(onnx_file_name=args.weight, trt_file_name=saved_path, 
+						max_batch_size=args.max_batch_size, max_workspace_size=args.max_workspace_size, FP16_MODE=args.fp16)
 
 def infer(args):
 	assert args.batch_size > 0, 'Batch size must be greater than 0'
@@ -117,10 +118,12 @@ if __name__ == '__main__':
 	infer_parser.add_argument("--softmax", action='store_true', default=False, help="Use softmax")
 	infer_parser.add_argument("--gpu", type=int, default=0, help="Infer gpu num")
 	
+	
 	export_parser = subparser.add_parser("export")
 	export_parser.add_argument('--weight', type=str, required=True, help='Input model path')
 	export_parser.add_argument('--saved_name', type=str, default=None, help='Output file name')
 	export_parser.add_argument('--max_batch_size', type=int, default=1, help='max_batch_size')
+	export_parser.add_argument('--max_workspace_size', type=int, default=1300, help='max workspace size(MB)')
 
 	export_parser.add_argument('--dim', action='store', dest='dim', type=int, nargs='*', default=None, help='CHW or HWC size')
 	export_parser.add_argument('--input_tensor_name', type=str, default=None, help='Input tensor name')
