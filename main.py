@@ -1,4 +1,9 @@
-from TRT_Eng import TRTInference, exportTRTEngine
+'''
+author: phatnt
+date modified: 2021-01-12
+'''
+
+from TRT_Parser import TRTInference, exportTRTEngine
 import cv2
 import numpy as np
 import argparse
@@ -7,24 +12,76 @@ import os
 import time
 
 def softmax(x):
-    e_x = np.exp(x - np.max(x))
-    return e_x / e_x.sum(axis=0)
+	'''
+		Softmax caculate
+		Args:
+			+ x <numpy array>
+		Return:
+			softmaxed x
+	'''
+	e_x = np.exp(x - np.max(x))
+	return e_x / e_x.sum(axis=0)
 
-def infer_main(args):
+def export(args):
+	assert args.max_batch_size > 0, 'Max batch size must be greater than 0'
+	assert os.path.isfile(args.weight), 'Could not found {}'.format(args.weight)
+
+	# Get trt engine saved name
+	if args.saved_name is not None:	
+		if os.path.dirname(args.saved_name) != '':
+			os.makedirs(os.path.dirname(args.saved_name), exist_ok=True)
+		saved_path = args.saved_name
+	else:
+		dirname = os.path.dirname(args.weight)
+		filename = os.path.basename(args.weight)
+		saved_path = os.path.join(dirname, filename.replace(os.path.splitext(filename)[-1], '.trt'))
+
+	# Export
+	if args.dim is not None:
+		assert args.input_tensor_name is not None
+		exportTRTEngine(args.weight, saved_path, args.max_batch_size, args.input_tensor_name, args.dim, True, args.fp16)
+	else:
+		exportTRTEngine(onnx_file_name=args.weight, trt_file_name=saved_path, max_batch_size=args.max_batch_size, multi_dimension=False, FP16_MODE=args.fp16)
+
+def infer(args):
 	assert args.batch_size > 0, 'Batch size must be greater than 0'
 	assert os.path.isfile(args.weight), 'Could not found {}'.format(args.weight)
-	assert os.path.isdir(args.data), 'Could not found {}'.format(args.data)
 
-	filesName = glob.glob(os.path.join(args.data ,"*"))
-	nrof_images = 0
-	engine = TRTInference(trt_engine_path=args.weight)
+	# Load data 
+	images = []
+	if os.path.isfile(args.data):
+		extentions = args.data.split('.')[-1]
+		if extentions in ['jpg', 'png', 'bmp', 'jpeg']:
+			print(args.data)
+			image = cv2.imread(args.data)
+			images.append(image)
+		elif extentions in ['mp4', 'mov', 'wmv', 'mkv', 'avi', 'flv']:
+			cap = cv2.VideoCapture(args.data)
+			if (cap.isOpened()== False):
+  				print("Error opening video stream or file")
+			while(cap.isOpened()):
+				ret, frame = cap.read()
+				if ret == True:
+					images.append(frame)
+				else: 
+					break
+	elif os.path.isdir(args.data):
+		files = sorted(glob.glob(os.path.join(args.data, '*')))
+		for file in files:
+			extentions = file.split('.')[-1]
+			if extentions in ['jpg', 'png', 'bmp', 'jpeg']:
+				print(file)
+				image = cv2.imread(file)
+				images.append(image)
+			else:
+				continue
+	else:
+		raise Exception(f"Could not load any data from: {args.data}")
+	
+	# Load engine
+	engine = TRTInference(engine_path=args.weight, gpu_num=args.gpu)
 
-	for file in filesName:
-		file_name, file_extension = os.path.splitext(file)
-		if file_extension == ".png" or file_extension == ".jpg" or file_extension == ".jpeg" or file_extension == ".bmp":
-			print(os.path.basename(file))
-			image = cv2.imread(file)
-			nrof_images += 1
+	for image in images:
 			start = time.time()
 			results = engine.infer(image)
 			for result in results:
@@ -34,26 +91,7 @@ def infer_main(args):
 				print(result)
 			end = time.time()
 			print("{0:.0f}ms".format((end - start)*1000))
-	print("Total inferenced images: {}".format(nrof_images))
-
-def export_main(args):
-	assert args.max_batch_size > 0, 'Max batch size must be greater than 0'
-	assert os.path.isfile(args.weight), 'Could not found {}'.format(args.weight)
-
-	if args.saved_name is not None:	
-		if os.path.dirname(args.saved_name) != '':
-			os.makedirs(os.path.dirname(args.saved_name), exist_ok=True)
-		saved_path = args.saved_name
-	else:
-		dirname = os.path.dirname(args.weight)
-		filename = os.path.basename(args.weight)
-		saved_path = dirname + filename.replace(os.path.splitext(filename)[-1], '.trt')
-
-	if args.dim is not None:
-		assert args.input_tensor_name is not None
-		exportTRTEngine(args.weight, saved_path, args.max_batch_size, args.input_tensor_name, args.dim, True, args.fp16)
-	else:
-		exportTRTEngine(onnx_file_name=args.weight, trt_file_name=saved_path, max_batch_size=args.max_batch_size, multi_dimension=False, FP16_MODE=args.fp16)
+	print("Total inferenced images: {}".format(len(images)))
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser('Export TensorRT')
@@ -64,6 +102,7 @@ if __name__ == '__main__':
 	infer_parser.add_argument("--data", type=str, required=True, help="Image folder path.")
 	infer_parser.add_argument("-bs", "--batch_size", type=int, default=1, help="Infer batch size")
 	infer_parser.add_argument("--softmax", action='store_true', default=False, help="Use softmax")
+	infer_parser.add_argument("--gpu", type=int, default=0, help="Infer gpu num")
 	
 	export_parser = subparser.add_parser("export")
 	export_parser.add_argument('--weight', type=str, required=True, help='Input model path')
@@ -77,7 +116,7 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 
 	if args.mode == "infer":
-		infer_main(args)
+		infer(args)
 	if args.mode == "export":
-		export_main(args)
+		export(args)
 

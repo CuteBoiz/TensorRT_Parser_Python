@@ -15,12 +15,6 @@ Convert the Onnx model to TensorRT model (.trt) help you save a lot of parsing t
   cd TensorRT_Parser_Python
   ```
   
- - **Switch to TensorRT 8 support:**
-    ```sh
-    git checkout trt8
-    ```
-  
-
 ## <div align=center> II. Export Onnx engine to TensorRT engine. </div>
 
 ```sh
