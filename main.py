@@ -98,11 +98,7 @@ def infer(args):
 	for batched in batched_images:
 		start = time.time()
 		results = engine.infer(batched)
-		for result in results:
-			result = np.squeeze(result)
-			if (args.softmax):
-				result = softmax(result)
-			print(result.shape)
+		print(results)
 		end = time.time()
 		print("{0:.0f}ms".format((end - start)*1000))
 	print("Total inferenced images: {}".format(len(images)))
@@ -117,6 +113,9 @@ if __name__ == '__main__':
 	infer_parser.add_argument("-bs", "--batch_size", type=int, default=1, help="Infer batch size")
 	infer_parser.add_argument("--softmax", action='store_true', default=False, help="Use softmax")
 	infer_parser.add_argument("--gpu", type=int, default=0, help="Infer gpu num")
+	infer_parser.add_argument("--confident_thres", type=float, default=0.2)
+	infer_parser.add_argument("--iou_thres", type=float, default=0.4)
+	
 	
 	
 	export_parser = subparser.add_parser("export")
