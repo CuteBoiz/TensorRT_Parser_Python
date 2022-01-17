@@ -10,6 +10,7 @@ import argparse
 import glob
 import os
 import time
+import copy
 
 def softmax(x):
 	'''
@@ -93,15 +94,40 @@ def infer(args):
 			count = 0
 			index += 1
 	# Load engine
-	engine = TRTInference(engine_path=args.weight, gpu_num=args.gpu)
+	engine = TRTInference(engine_path=args.weight, gpu_num=args.gpu, 
+						confident_theshold=args.confident_thres, iou_threshold=args.iou_thres)
 
+	final_result = []
 	for batched in batched_images:
 		start = time.time()
-		results = engine.infer(batched)
-		print(results)
+		infer_images = copy.copy(batched)
+		result_per_batch = engine.infer(infer_images)
+		final_result.append(result_per_batch)
 		end = time.time()
 		print("{0:.0f}ms".format((end - start)*1000))
 	print("Total inferenced images: {}".format(len(images)))
+
+	for i in range(len(batched_images)):
+		for j in range(len(batched_images[i])):
+			origin_image = batched_images[i][j]
+			boxes, scores, ids = final_result[i][j]
+			if len(boxes):
+				ori_h, ori_w = origin_image.shape[:2]
+				print(ori_h, ori_w)
+				boxes[:,0] = boxes[:,0] * ori_w /640
+				boxes[:,1] = boxes[:,1] * ori_h /640
+				boxes[:,2] = boxes[:,2] * ori_w /640
+				boxes[:,3] = boxes[:,3] * ori_h /640
+				for i, box in enumerate(boxes):
+					x1, y1, x2, y2 = np.array(box, dtype=int)
+					origin_image = cv2.rectangle(origin_image, (x1, y1), (x2, y2), (255, 0, 0), 2)
+					origin_image = cv2.putText(origin_image, f'{ids[i]} {scores[i]:.3f}', (x1, y1-5), 
+												cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,0,0), 2, cv2.LINE_AA)
+
+				cv2.imshow('test' ,origin_image)
+				cv2.waitKey()
+				cv2.destroyAllWindows()
+
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser('Export TensorRT')
@@ -115,8 +141,6 @@ if __name__ == '__main__':
 	infer_parser.add_argument("--gpu", type=int, default=0, help="Infer gpu num")
 	infer_parser.add_argument("--confident_thres", type=float, default=0.2)
 	infer_parser.add_argument("--iou_thres", type=float, default=0.4)
-	
-	
 	
 	export_parser = subparser.add_parser("export")
 	export_parser.add_argument('--weight', type=str, required=True, help='Input model path')

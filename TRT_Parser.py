@@ -7,6 +7,7 @@ import numpy as np
 import threading
 import time
 import cv2
+import copy
 
 
 def show_engine_info(engine):
@@ -25,9 +26,11 @@ def show_engine_info(engine):
 	
 
 class TRTInference():
-	def __init__(self, engine_path, gpu_num=0 ,trt_engine_datatype=trt.DataType.FLOAT):
+	def __init__(self, engine_path, confident_theshold, iou_threshold, gpu_num=0 ):
 		self.cfx = cuda.Device(gpu_num).make_context()
 		stream = cuda.Stream()
+		self.confident_theshold = confident_theshold
+		self.iou_threshold = iou_threshold
 
 		TRT_LOGGER = trt.Logger(trt.Logger.INFO)
 		trt.init_libnvinfer_plugins(TRT_LOGGER, '')
@@ -66,9 +69,9 @@ class TRTInference():
 			image = cv2.resize(src=image, dsize=(self.input_width, self.input_height), interpolation = cv2.INTER_AREA)
 			image = np.float32(image)
 			image = image*(1/255)
-			mean = [0.485, 0.456, 0.406]
-			std = [0.229, 0.224, 0.225]
-			image = (image - mean) / std
+			# mean = [0.485, 0.456, 0.406]
+			# std = [0.229, 0.224, 0.225]
+			# image = (image - mean) / std
 			if self.channel_first:
 				image = image.transpose((2, 0, 1))
 			x.append(image)
@@ -78,6 +81,7 @@ class TRTInference():
 	def infer(self, images):
 		assert len(images) <= self.engine.max_batch_size, f"[ERROR] Batch size num must be smaller than {self.engine.max_batch_size}"
 		threading.Thread.__init__(self)
+
 		# Image preprocessing
 		x = self.preprocess_images(images)
 	
@@ -117,122 +121,66 @@ class TRTInference():
 			outputs.append(host_outputs[i].reshape(output_shape[i]))
 		self.stream.synchronize()
 		self.cfx.pop()
-
-		batched_result = (outputs[3][:len(images),:])
+		batched_pred = (outputs[3][:len(images),:])
 		
+		# Post-process result
 		results = []
-		for result in batched_result:
-			boxes = self.non_max_suppression(result, origin_h=1700, origin_w=1700, conf_thres=0.2, nms_thres=0.45)
+		for pred_per_images in batched_pred:
+			boxes = self.non_maximun_supression(pred_per_images)
 			result_boxes = boxes[:, :4] if len(boxes) else np.array([])
-			result_scores = boxes[:, 4] if len(boxes) else np.array([])
-			result_classid = boxes[:, 5] if len(boxes) else np.array([])
+			result_scores = [np.max(box[5:]) for box in boxes] if len(boxes) else np.array([])
+			result_classid = [np.argmax(box[5:]) for box in boxes] if len(boxes) else np.array([])
+			
 			results.append((result_boxes, result_scores, result_classid))
 
 		return results
 
-	def xywh2xyxy(self, origin_h, origin_w, x):
-		"""
-		description:    Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
-		param:
-			origin_h:   height of original image
-			origin_w:   width of original image
-			x:          A boxes numpy, each row is a box [center_x, center_y, w, h]
-		return:
-			y:          A boxes numpy, each row is a box [x1, y1, x2, y2]
-		"""
-		y = np.zeros_like(x)
-		r_w = self.input_width / origin_w
-		r_h = self.input_height / origin_h
-		if r_h > r_w:
-			y[:, 0] = x[:, 0] - x[:, 2] / 2
-			y[:, 2] = x[:, 0] + x[:, 2] / 2
-			y[:, 1] = x[:, 1] - x[:, 3] / 2 - (self.input_height - r_w * origin_h) / 2
-			y[:, 3] = x[:, 1] + x[:, 3] / 2 - (self.input_height - r_w * origin_h) / 2
-			y /= r_w
-		else:
-			y[:, 0] = x[:, 0] - x[:, 2] / 2 - (self.input_width - r_h * origin_w) / 2
-			y[:, 2] = x[:, 0] + x[:, 2] / 2 - (self.input_width - r_h * origin_w) / 2
-			y[:, 1] = x[:, 1] - x[:, 3] / 2
-			y[:, 3] = x[:, 1] + x[:, 3] / 2
-			y /= r_h
+	def bbox_iou(self, boxes_A, boxes_B):
+		xA = np.maximum(boxes_A[:, 0], boxes_B[:, 0])
+		yA = np.maximum(boxes_A[:, 1], boxes_B[:, 1])
+		xB = np.minimum(boxes_A[:, 2], boxes_B[:, 2])
+		yB = np.minimum(boxes_A[:, 3], boxes_B[:, 3])
 
-		return y
+		inter_area = np.clip(xB - xA + 1, 0, None) * np.clip(yB - yA + 1, 0, None)
 
-	def bbox_iou(self, box1, box2, x1y1x2y2=True):
-		"""
-		description: compute the IoU of two bounding boxes
-		param:
-			box1: A box coordinate (can be (x1, y1, x2, y2) or (x, y, w, h))
-			box2: A box coordinate (can be (x1, y1, x2, y2) or (x, y, w, h))            
-			x1y1x2y2: select the coordinate format
-		return:
-			iou: computed iou
-		"""
-		if not x1y1x2y2:
-			# Transform from center and width to exact coordinates
-			b1_x1, b1_x2 = box1[:, 0] - box1[:, 2] / 2, box1[:, 0] + box1[:, 2] / 2
-			b1_y1, b1_y2 = box1[:, 1] - box1[:, 3] / 2, box1[:, 1] + box1[:, 3] / 2
-			b2_x1, b2_x2 = box2[:, 0] - box2[:, 2] / 2, box2[:, 0] + box2[:, 2] / 2
-			b2_y1, b2_y2 = box2[:, 1] - box2[:, 3] / 2, box2[:, 1] + box2[:, 3] / 2
-		else:
-			# Get the coordinates of bounding boxes
-			b1_x1, b1_y1, b1_x2, b1_y2 = box1[:, 0], box1[:, 1], box1[:, 2], box1[:, 3]
-			b2_x1, b2_y1, b2_x2, b2_y2 = box2[:, 0], box2[:, 1], box2[:, 2], box2[:, 3]
+		b1_area =  (boxes_A[:, 2] - boxes_A[:, 0] + 1) * (boxes_A[:, 3] - boxes_A[:, 1] + 1) 
+		b2_area =  (boxes_B[:, 2] - boxes_B[:, 0] + 1) * (boxes_B[:, 3] - boxes_B[:, 1] + 1)
 
-		# Get the coordinates of the intersection rectangle
-		inter_rect_x1 = np.maximum(b1_x1, b2_x1)
-		inter_rect_y1 = np.maximum(b1_y1, b2_y1)
-		inter_rect_x2 = np.minimum(b1_x2, b2_x2)
-		inter_rect_y2 = np.minimum(b1_y2, b2_y2)
-		# Intersection area
-		inter_area = np.clip(inter_rect_x2 - inter_rect_x1 + 1, 0, None) * \
-						np.clip(inter_rect_y2 - inter_rect_y1 + 1, 0, None)
-		# Union Area
-		b1_area = (b1_x2 - b1_x1 + 1) * (b1_y2 - b1_y1 + 1)
-		b2_area = (b2_x2 - b2_x1 + 1) * (b2_y2 - b2_y1 + 1)
-
-		iou = inter_area / (b1_area + b2_area - inter_area + 1e-16)
-
+		iou = inter_area / (b1_area + b2_area - inter_area)
 		return iou
+	
+	def non_maximun_supression(self, pred_per_images):
+		
+		# Get box that score > confident_thres
+		boxes = pred_per_images[pred_per_images[:, 4] >= self.confident_theshold]
 
+		# (x_center, y_center, w, h) => (x1, y1, x2, y2)
+		boxes[:, 0] = boxes[:, 0] - boxes[:, 2]/2 
+		boxes[:, 1] = boxes[:, 1] - boxes[:, 3]/2 
+		boxes[:, 2] = boxes[:, 0] + boxes[:, 2]
+		boxes[:, 3] = boxes[:, 1] + boxes[:, 3]
 
-	def non_max_suppression(self, prediction, origin_h, origin_w, conf_thres=0.5, nms_thres=0.4):
-		"""
-		description: Removes detections with lower object confidence score than 'conf_thres' and performs
-		Non-Maximum Suppression to further filter detections.
-		param:
-			prediction: detections, (x1, y1, x2, y2, conf, cls_id)
-			origin_h: original image height
-			origin_w: original image width
-			conf_thres: a confidence threshold to filter detections
-			nms_thres: a iou threshold to filter detections
-		return:
-			boxes: output after nms with the shape (x1, y1, x2, y2, conf, cls_id)
-		"""
-		# Get the boxes that score > CONF_THRESH
-		boxes = prediction[prediction[:, 4] >= conf_thres]
-		# Trandform bbox from [center_x, center_y, w, h] to [x1, y1, x2, y2]
-		boxes[:, :4] = self.xywh2xyxy(origin_h, origin_w, boxes[:, :4])
 		# clip the coordinates
-		boxes[:, 0] = np.clip(boxes[:, 0], 0, origin_w -1)
-		boxes[:, 2] = np.clip(boxes[:, 2], 0, origin_w -1)
-		boxes[:, 1] = np.clip(boxes[:, 1], 0, origin_h -1)
-		boxes[:, 3] = np.clip(boxes[:, 3], 0, origin_h -1)
-		# Object confidence
-		confs = boxes[:, 4]
-		# Sort by the confs
-		boxes = boxes[np.argsort(-confs)]
-		# Perform non-maximum suppression
+		boxes[:, 0] =  np.clip(boxes[:, 0], 0, self.input_width)
+		boxes[:, 1] =  np.clip(boxes[:, 1], 0, self.input_height)
+		boxes[:, 2] =  np.clip(boxes[:, 2], 0, self.input_width)
+		boxes[:, 3] =  np.clip(boxes[:, 3], 0, self.input_height)
+
+		# Sort by box score
+		box_score = boxes[:, 4]
+		boxes = boxes[np.argsort(-box_score)]
+
+		# Nms
 		keep_boxes = []
 		while boxes.shape[0]:
-			large_overlap = self.bbox_iou(np.expand_dims(boxes[0, :4], 0), boxes[:, :4]) > nms_thres
-			label_match = boxes[0, -1] == boxes[:, -1]
-			# Indices of boxes with lower confidence scores, large IOUs and matching labels
-			invalid = large_overlap & label_match
+			large_overlap = self.bbox_iou(np.expand_dims(boxes[0, :4], 0), boxes[:, :4]) >= self.iou_threshold
 			keep_boxes += [boxes[0]]
-			boxes = boxes[~invalid]
+			boxes = boxes[~large_overlap]
+		
 		boxes = np.stack(keep_boxes, 0) if len(keep_boxes) else np.array([])
+
 		return boxes
+
 
 	def __del__(self):
 		self.cfx.pop()
