@@ -97,6 +97,7 @@ def infer(args):
 	engine = TRTInference(engine_path=args.weight, gpu_num=args.gpu, 
 						confident_theshold=args.confident_thres, iou_threshold=args.iou_thres)
 
+	# Inference
 	final_result = []
 	for batched in batched_images:
 		start = time.time()
@@ -107,26 +108,26 @@ def infer(args):
 		print("{0:.0f}ms".format((end - start)*1000))
 	print("Total inferenced images: {}".format(len(images)))
 
+	# Visualize result
 	for i in range(len(batched_images)):
 		for j in range(len(batched_images[i])):
 			origin_image = batched_images[i][j]
 			boxes, scores, ids = final_result[i][j]
 			if len(boxes):
 				ori_h, ori_w = origin_image.shape[:2]
-				print(ori_h, ori_w)
-				boxes[:,0] = boxes[:,0] * ori_w /640
-				boxes[:,1] = boxes[:,1] * ori_h /640
-				boxes[:,2] = boxes[:,2] * ori_w /640
-				boxes[:,3] = boxes[:,3] * ori_h /640
+				boxes[:,0] = boxes[:,0] * ori_w
+				boxes[:,1] = boxes[:,1] * ori_h
+				boxes[:,2] = boxes[:,2] * ori_w 
+				boxes[:,3] = boxes[:,3] * ori_h
 				for i, box in enumerate(boxes):
 					x1, y1, x2, y2 = np.array(box, dtype=int)
 					origin_image = cv2.rectangle(origin_image, (x1, y1), (x2, y2), (255, 0, 0), 2)
 					origin_image = cv2.putText(origin_image, f'{ids[i]} {scores[i]:.3f}', (x1, y1-5), 
-												cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,0,0), 2, cv2.LINE_AA)
+												cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,0,0), 1, cv2.LINE_AA)
 
-				cv2.imshow('test' ,origin_image)
-				cv2.waitKey()
-				cv2.destroyAllWindows()
+			cv2.imshow('test' ,origin_image)
+			cv2.waitKey()
+			cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':

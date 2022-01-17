@@ -15,7 +15,7 @@ def show_engine_info(engine):
 	
 	print("[INFO] TensorRT Engine Info")
 	print(f"\t + Max batch size: {engine.max_batch_size}.")
-	print(f"\t + Engine mem size: {engine.device_memory_size/(1048576)} MB (GPU Mem).")
+	print(f"\t + Engine mem size: {engine.device_memory_size/(1048576):.3f} MB (GPU Mem).")
 	print("\t + Tensors:")
 	for binding in engine:
 		if engine.binding_is_input(binding):
@@ -29,9 +29,7 @@ class TRTInference():
 	def __init__(self, engine_path, confident_theshold, iou_threshold, gpu_num=0 ):
 		self.cfx = cuda.Device(gpu_num).make_context()
 		stream = cuda.Stream()
-		self.confident_theshold = confident_theshold
-		self.iou_threshold = iou_threshold
-
+		
 		TRT_LOGGER = trt.Logger(trt.Logger.INFO)
 		trt.init_libnvinfer_plugins(TRT_LOGGER, '')
 		runtime = trt.Runtime(TRT_LOGGER)
@@ -59,6 +57,8 @@ class TRTInference():
 		self.context = context
 		self.engine  = engine
 		self.stream = stream
+		self.confident_theshold = confident_theshold
+		self.iou_threshold = iou_threshold
 
 	
 	def preprocess_images(self, images):
@@ -150,7 +150,6 @@ class TRTInference():
 		return iou
 	
 	def non_maximun_supression(self, pred_per_images):
-		
 		# Get box that score > confident_thres
 		boxes = pred_per_images[pred_per_images[:, 4] >= self.confident_theshold]
 
@@ -177,8 +176,14 @@ class TRTInference():
 			keep_boxes += [boxes[0]]
 			boxes = boxes[~large_overlap]
 		
+		#Normalize
+		if len(keep_boxes):
+			keep_boxes = np.array(keep_boxes, dtype=float)
+			keep_boxes[:, 0] = keep_boxes[:, 0] / self.input_width
+			keep_boxes[:, 1] = keep_boxes[:, 1] / self.input_height
+			keep_boxes[:, 2] = keep_boxes[:, 2] / self.input_width
+			keep_boxes[:, 3] = keep_boxes[:, 3] / self.input_height
 		boxes = np.stack(keep_boxes, 0) if len(keep_boxes) else np.array([])
-
 		return boxes
 
 
